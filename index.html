@@ -11,7 +11,8 @@
             --text-color: #333333;
             --npb-color: #1a365d;
             --mlb-color: #9b2c2c;
-            --accent-color: #2b6cb0;
+            --accent-color: #c05621; /* 差分用のオレンジ系 */
+            --accent-bg: #fffaf0;    /* 差分カードの背景ベージュ */
         }
 
         body {
@@ -26,7 +27,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1150px;
             width: 100%;
         }
 
@@ -76,12 +77,25 @@
             display: none;
         }
 
-        /* サマリーカード */
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        /* 💡 修正：サマリーエリアの構造変更 */
+        .summary-container {
+            display: flex;
+            flex-direction: column;
             gap: 15px;
             margin-bottom: 30px;
+        }
+
+        /* 上段：NPBとMLBを綺麗に2並びにする */
+        .summary-upper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .summary-upper {
+                grid-template-columns: 1fr;
+            }
         }
 
         .card {
@@ -111,13 +125,45 @@
 
         .card.npb { border-top: 5px solid var(--npb-color); }
         .card.mlb { border-top: 5px solid var(--mlb-color); }
-        .card.diff { border-top: 5px solid var(--accent-color); background: #ebf8ff; }
 
-        /* 💡 ランキングエリアを左右2カラムにする設定 */
+        /* 💡 修正：下段の横長差分カードのスタイリング */
+        .card.diff { 
+            background: var(--accent-bg); 
+            border: 1px solid #feebc8;
+            padding: 15px 20px;
+        }
+
+        .diff-title {
+            font-size: 0.85rem;
+            color: #718096;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .card.diff .time-diff-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        /* 数字部分だけをドカンと大きく強調するスタイル */
+        .card.diff .highlight-num {
+            font-size: 2.2rem;
+            margin: 0 4px;
+            font-weight: 900;
+        }
+
+        /* ランキングエリア（MLB優先の1:1.3比率） */
         .ranking-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            grid-template-columns: 1fr 1.3fr;
             gap: 20px;
+        }
+
+        @media (max-width: 850px) {
+            .ranking-container {
+                grid-template-columns: 1fr;
+            }
         }
 
         .ranking-section {
@@ -154,6 +200,12 @@
             font-weight: bold;
         }
 
+        /* 試合時間の文字が絶対に改行されないように固定 */
+        th:nth-child(2), td:nth-child(2) {
+            white-space: nowrap;
+            width: 100px;
+        }
+
         .game-link {
             color: #3182ce;
             text-decoration: none;
@@ -173,24 +225,26 @@
         <input type="date" id="date-picker">
     </div>
 
-    <div id="loading">データを取得中...</div>
+    <div id="loading">データを取得中（数秒かかります）...</div>
 
     <div id="main-content">
-        <div class="summary-grid">
-            <div class="card npb">
-                <h2>NPB 平均試合時間</h2>
-                <div class="time" id="npb-average">-</div>
-                <div class="count" id="npb-count">0試合</div>
-            </div>
-            <div class="card mlb">
-                <h2>MLB 平均試合時間</h2>
-                <div class="time" id="mlb-average">-</div>
-                <div class="count" id="mlb-count">0試合</div>
+        
+        <div class="summary-container">
+            <div class="summary-upper">
+                <div class="card npb">
+                    <h2>NPB 平均試合時間</h2>
+                    <div class="time" id="npb-average">-</div>
+                    <div class="count" id="npb-count">0試合</div>
+                </div>
+                <div class="card mlb">
+                    <h2>MLB 平均試合時間</h2>
+                    <div class="time" id="mlb-average">-</div>
+                    <div class="count" id="mlb-count">0試合</div>
+                </div>
             </div>
             <div class="card diff">
-                <h2>平均時間の差</h2>
-                <div class="time" id="time-difference">-</div>
-                <div class="count">NPBの方が長い時間</div>
+                <div class="diff-title">日本時間基準での本日の差分</div>
+                <div class="time-diff-text" id="time-difference">-</div>
             </div>
         </div>
 
@@ -249,24 +303,33 @@
                 }
 
                 document.getElementById('npb-average').textContent = data.npb_count > 0 ? formatMinutes(data.npb_average) : "試合なし";
-                document.getElementById('npb-count').textContent = `${data.npb_count} 試合`;
+                document.getElementById('npb-count').textContent = `${data.npb_count} 試合終了`;
 
                 document.getElementById('mlb-average').textContent = data.mlb_count > 0 ? formatMinutes(data.mlb_average) : "試合なし";
-                document.getElementById('mlb-count').textContent = `${data.mlb_count} 試合`;
+                document.getElementById('mlb-count').textContent = `${data.mlb_count} 試合終了`;
 
-                document.getElementById('time-difference').textContent = `${data.difference_minutes} 分`;
+                // 💡 修正：差分テキストの自動判定ロジック
+                const diff = data.difference_minutes;
+                const diffTimeEl = document.getElementById('time-difference');
+                
+                if (data.npb_count === 0 || data.mlb_count === 0) {
+                    diffTimeEl.textContent = "比較可能な試合データが揃っていません";
+                } else if (diff > 0) {
+                    diffTimeEl.innerHTML = `NPBの方が <span class="highlight-num">${diff}分</span> 長い`;
+                } else if (diff < 0) {
+                    diffTimeEl.innerHTML = `MLBの方が <span class="highlight-num">${Math.abs(diff)}分</span> 長い`;
+                } else {
+                    diffTimeEl.textContent = "日米の平均試合時間は同じです";
+                }
 
-                // 💡 3. NPBとMLBのデータを振り分けて別々にテーブル生成
                 const npbTbody = document.getElementById('npb-ranking-body');
                 const mlbTbody = document.getElementById('mlb-ranking-body');
                 npbTbody.innerHTML = ""; 
                 mlbTbody.innerHTML = ""; 
 
-                // データをリーグごとにフィルタリング
                 const npbGames = data.games_ranking ? data.games_ranking.filter(g => g.league === "NPB") : [];
                 const mlbGames = data.games_ranking ? data.games_ranking.filter(g => g.league === "MLB") : [];
 
-                // NPBテーブルの描画
                 if (npbGames.length > 0) {
                     npbGames.forEach(game => {
                         const tr = document.createElement('tr');
@@ -280,7 +343,6 @@
                     npbTbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#718096;">試合データはありません</td></tr>`;
                 }
 
-                // MLBテーブルの描画
                 if (mlbGames.length > 0) {
                     mlbGames.forEach(game => {
                         const tr = document.createElement('tr');
