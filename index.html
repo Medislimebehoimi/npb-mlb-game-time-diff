@@ -11,8 +11,8 @@
             --text-color: #333333;
             --npb-color: #1a365d;
             --mlb-color: #9b2c2c;
-            --accent-color: #c05621; /* 差分用のオレンジ系 */
-            --accent-bg: #fffaf0;    /* 差分カードの背景ベージュ */
+            --accent-color: #c05621;
+            --accent-bg: #fffaf0;
         }
 
         body {
@@ -62,6 +62,8 @@
             border-radius: 4px;
             outline: none;
             cursor: pointer;
+            /* スマホ特有のデフォルトデザインをリセット */
+            -webkit-appearance: none;
         }
 
         /* ローディング表示 */
@@ -77,7 +79,7 @@
             display: none;
         }
 
-        /* 💡 修正：サマリーエリアの構造変更 */
+        /* サマリーエリア */
         .summary-container {
             display: flex;
             flex-direction: column;
@@ -85,7 +87,7 @@
             margin-bottom: 30px;
         }
 
-        /* 上段：NPBとMLBを綺麗に2並びにする */
+        /* 上段：横並び */
         .summary-upper {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -126,7 +128,7 @@
         .card.npb { border-top: 5px solid var(--npb-color); }
         .card.mlb { border-top: 5px solid var(--mlb-color); }
 
-        /* 💡 修正：下段の横長差分カードのスタイリング */
+        /* 下段：横長カード */
         .card.diff { 
             background: var(--accent-bg); 
             border: 1px solid #feebc8;
@@ -146,14 +148,13 @@
             color: var(--accent-color);
         }
 
-        /* 数字部分だけをドカンと大きく強調するスタイル */
         .card.diff .highlight-num {
             font-size: 2.2rem;
             margin: 0 4px;
             font-weight: 900;
         }
 
-        /* ランキングエリア（MLB優先の1:1.3比率） */
+        /* ランキングエリア */
         .ranking-container {
             display: grid;
             grid-template-columns: 1fr 1.3fr;
@@ -200,7 +201,6 @@
             font-weight: bold;
         }
 
-        /* 試合時間の文字が絶対に改行されないように固定 */
         th:nth-child(2), td:nth-child(2) {
             white-space: nowrap;
             width: 100px;
@@ -250,7 +250,7 @@
 
         <div class="ranking-container">
             <div class="ranking-section npb-sect">
-                <h3>🇯🇵 NPB 試合時間（長い順）</h3>
+                <h3>NPB 試合時間（長い順）</h3>
                 <table>
                     <thead>
                         <tr>
@@ -263,7 +263,7 @@
             </div>
 
             <div class="ranking-section mlb-sect">
-                <h3>🇺🇸 MLB 試合時間（長い順）</h3>
+                <h3>MLB 試合時間（長い順）</h3>
                 <table>
                     <thead>
                         <tr>
@@ -308,7 +308,6 @@
                 document.getElementById('mlb-average').textContent = data.mlb_count > 0 ? formatMinutes(data.mlb_average) : "試合なし";
                 document.getElementById('mlb-count').textContent = `${data.mlb_count} 試合終了`;
 
-                // 💡 修正：差分テキストの自動判定ロジック
                 const diff = data.difference_minutes;
                 const diffTimeEl = document.getElementById('time-difference');
                 
@@ -371,7 +370,8 @@
         return hours > 0 ? `${hours}時間${mins}分` : `${mins}分`;
     }
 
-    datePicker.addEventListener('change', (e) => {
+    // 💡 修正：スマホのネイティブピッカーでの変更を確実に検知するため 'input' イベントに変更
+    datePicker.addEventListener('input', (e) => {
         if (e.target.value) {
             fetchAndRender(e.target.value);
         }
