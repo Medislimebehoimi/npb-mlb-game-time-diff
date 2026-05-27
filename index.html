@@ -26,7 +26,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
         }
 
@@ -71,7 +71,7 @@
             margin: 40px 0;
         }
 
-        /* メインデータ表示（初期状態は非表示） */
+        /* メインデータ表示 */
         #main-content {
             display: none;
         }
@@ -113,7 +113,13 @@
         .card.mlb { border-top: 5px solid var(--mlb-color); }
         .card.diff { border-top: 5px solid var(--accent-color); background: #ebf8ff; }
 
-        /* ランキングテーブル */
+        /* 💡 ランキングエリアを左右2カラムにする設定 */
+        .ranking-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+        }
+
         .ranking-section {
             background: var(--card-bg);
             padding: 20px;
@@ -125,9 +131,11 @@
             margin-top: 0;
             margin-bottom: 15px;
             color: #2d3748;
-            border-bottom: 2px solid #e2e8f0;
             padding-bottom: 8px;
         }
+
+        .ranking-section.npb-sect h3 { border-bottom: 2px solid var(--npb-color); }
+        .ranking-section.mlb-sect h3 { border-bottom: 2px solid var(--mlb-color); }
 
         table {
             width: 100%;
@@ -145,17 +153,6 @@
             color: #4a5568;
             font-weight: bold;
         }
-
-        .badge {
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: bold;
-            color: white;
-        }
-
-        .badge.npb { background-color: var(--npb-color); }
-        .badge.mlb { background-color: var(--mlb-color); }
 
         .game-link {
             color: #3182ce;
@@ -176,7 +173,7 @@
         <input type="date" id="date-picker">
     </div>
 
-    <div id="loading">データを取得中（スクレイピングには数秒かかります）...</div>
+    <div id="loading">データを取得中...</div>
 
     <div id="main-content">
         <div class="summary-grid">
@@ -197,19 +194,32 @@
             </div>
         </div>
 
-        <div class="ranking-section">
-            <h3>⏱️ 試合時間ランキング（長い順）</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>リーグ</th>
-                        <th>対戦カード</th>
-                        <th>試合時間</th>
-                    </tr>
-                </thead>
-                <tbody id="ranking-body">
-                    </tbody>
-            </table>
+        <div class="ranking-container">
+            <div class="ranking-section npb-sect">
+                <h3>🇯🇵 NPB 試合時間（長い順）</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>対戦カード</th>
+                            <th>試合時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="npb-ranking-body"></tbody>
+                </table>
+            </div>
+
+            <div class="ranking-section mlb-sect">
+                <h3>🇺🇸 MLB 試合時間（長い順）</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>対戦カード</th>
+                            <th>試合時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mlb-ranking-body"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -222,13 +232,10 @@
     const loadingEl = document.getElementById('loading');
     const mainContentEl = document.getElementById('main-content');
 
-    // 💡 データを取得して画面を更新するメイン関数
     function fetchAndRender(selectedDate = "") {
-        // ローディングを表示し、コンテンツを隠す
         loadingEl.style.display = "block";
         mainContentEl.style.display = "none";
 
-        // 日付が選ばれていたらURLの末尾に「?date=YYYY-MM-DD」を付与する
         let targetUrl = GAS_URL;
         if (selectedDate) {
             targetUrl += `?date=${selectedDate}`;
@@ -237,12 +244,10 @@
         fetch(targetUrl)
             .then(response => response.json())
             .then(data => {
-                // 1. カレンダーに「今表示しているデータの日付」を同期させる
                 if (data.date) {
                     datePicker.value = data.date;
                 }
 
-                // 2. サマリーカードの数値を書き換え
                 document.getElementById('npb-average').textContent = data.npb_count > 0 ? formatMinutes(data.npb_average) : "試合なし";
                 document.getElementById('npb-count').textContent = `${data.npb_count} 試合`;
 
@@ -251,29 +256,44 @@
 
                 document.getElementById('time-difference').textContent = `${data.difference_minutes} 分`;
 
-                // 3. ランキングテーブルの生成
-                const tbody = document.getElementById('ranking-body');
-                tbody.innerHTML = ""; // 一旦リセット
+                // 💡 3. NPBとMLBのデータを振り分けて別々にテーブル生成
+                const npbTbody = document.getElementById('npb-ranking-body');
+                const mlbTbody = document.getElementById('mlb-ranking-body');
+                npbTbody.innerHTML = ""; 
+                mlbTbody.innerHTML = ""; 
 
-                if (data.games_ranking && data.games_ranking.length > 0) {
-                    data.games_ranking.forEach(game => {
+                // データをリーグごとにフィルタリング
+                const npbGames = data.games_ranking ? data.games_ranking.filter(g => g.league === "NPB") : [];
+                const mlbGames = data.games_ranking ? data.games_ranking.filter(g => g.league === "MLB") : [];
+
+                // NPBテーブルの描画
+                if (npbGames.length > 0) {
+                    npbGames.forEach(game => {
                         const tr = document.createElement('tr');
-                        
-                        // リーグバッジ
-                        const badgeClass = game.league === "NPB" ? "badge npb" : "badge mlb";
-                        
                         tr.innerHTML = `
-                            <td><span class="${badgeClass}">${game.league}</span></td>
                             <td><a href="${game.url}" target="_blank" class="game-link">${game.match}</a></td>
                             <td><strong>${game.display_time}</strong></td>
                         `;
-                        tbody.appendChild(tr);
+                        npbTbody.appendChild(tr);
                     });
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#718096;">この日の終了した試合データはありません</td></tr>`;
+                    npbTbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#718096;">試合データはありません</td></tr>`;
                 }
 
-                // 表示の切り替え
+                // MLBテーブルの描画
+                if (mlbGames.length > 0) {
+                    mlbGames.forEach(game => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><a href="${game.url}" target="_blank" class="game-link">${game.match}</a></td>
+                            <td><strong>${game.display_time}</strong></td>
+                        `;
+                        mlbTbody.appendChild(tr);
+                    });
+                } else {
+                    mlbTbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#718096;">試合データはありません</td></tr>`;
+                }
+
                 loadingEl.style.display = "none";
                 mainContentEl.style.display = "block";
             })
@@ -283,21 +303,18 @@
             });
     }
 
-    // 分を「○時間○分」の表記に変換する便利関数
     function formatMinutes(totalMinutes) {
         const hours = Math.floor(totalMinutes / 60);
         const mins = totalMinutes % 60;
         return hours > 0 ? `${hours}時間${mins}分` : `${mins}分`;
     }
 
-    // 💡 カレンダーの日付が変更されたらその日付で再読込
     datePicker.addEventListener('change', (e) => {
         if (e.target.value) {
             fetchAndRender(e.target.value);
         }
     });
 
-    // 💡 初回アクセス時は日付指定なしで実行（GAS側で判定されたデフォルトの今日が表示される）
     fetchAndRender();
 </script>
 
