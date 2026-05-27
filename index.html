@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日米プロ野球 試合時間比較</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --npb-color: #1a365d;
+            --mlb-color: #c53030;
+            --accent-bg: #fffaf0;
+            --accent-border: #feebc8;
+            --accent-text: #dd6b20;
+            --link-color: #2563eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #111827;
+        }
+
+        .date {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+
+        .summary-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .league-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .league-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .league-card.npb .league-name { color: var(--npb-color); }
+        .league-card.mlb .league-name { color: var(--mlb-color); }
+
+        .time-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .game-count {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .result-box {
+            grid-column: span 2;
+            padding: 20px;
+            background: var(--accent-bg);
+            border-radius: 12px;
+            border: 1px solid var(--accent-border);
+            text-align: center;
+        }
+
+        .result-title {
+            font-size: 13px;
+            color: #7c2d12;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .diff-text {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-text);
+        }
+
+        .tables-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .summary-section, .tables-section {
+                grid-template-columns: 1fr;
+            }
+            .result-box { grid-column: span 1; }
+        }
+
+        .table-container {
+            background: #fff;
+        }
+
+        .table-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 3px solid #cbd5e1;
+        }
+        .npb-title { border-color: var(--npb-color); color: var(--npb-color); }
+        .mlb-title { border-color: var(--mlb-color); color: var(--mlb-color); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .rank-col { width: 10%; text-align: center; font-weight: bold; color: var(--text-muted); }
+        .match-col { width: 65%; }
+        .time-col { width: 25%; text-align: right; font-weight: 600; }
+
+        .game-link {
+            color: var(--link-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.1s;
+        }
+        .game-link:hover {
+            text-decoration: underline;
+            color: #1d4ed8;
+        }
+
+        .status-loading {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .refresh-btn {
+            display: block;
+            margin: 25px auto 0 auto;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .refresh-btn:hover { background: #f1f5f9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚾ 本日の日米平均試合時間 ⚾</h1>
+    <div class="date" id="current-date">対象日：取得中... (JST)</div>
+
+    <div class="summary-section">
+        <div class="league-card npb">
+            <div class="league-name">NPB (プロ野球)</div>
+            <div class="time-value" id="npb-time">--:--</div>
+            <div class="game-count" id="npb-count">0試合終了</div>
+        </div>
+        <div class="league-card mlb">
+            <div class="league-name">MLB (メジャー)</div>
+            <div class="time-value" id="mlb-time">--:--</div>
+            <div class="game-count" id="mlb-count">0試合終了</div>
+        </div>
+        <div class="result-box">
+            <div class="result-title">本日の試合時間の差</div>
+            <div class="diff-text" id="diff-value">データを読み込み中...</div>
+        </div>
+    </div>
+
+    <div class="tables-section">
+        <!-- NPBの表 -->
+        <div class="table-container">
+            <div class="table-title npb-title">NPB 試合時間一覧（長い順）</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align:center;">順</th>
+                        <th>対戦カード (リンク付)</th>
+                        <th style="text-align:right;">試合時間</th>
+                    </tr>
+                </thead>
+                <tbody id="npb-table-body">
+                    <tr><td colspan="3" style="text-align:center; color:var(--text-muted);">データなし</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- MLBの表 -->
+        <div class="table-container">
+            <div class="table-title mlb-title">MLB 試合時間一覧（長い順）</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align:center;">順</th>
+                        <th>対戦カード (リンク付)</th>
+                        <th style="text-align:right;">試合時間</th>
+                    </tr>
+                </thead>
+                <tbody id="mlb-table-body">
+                    <tr><td colspan="3" style="text-align:center; color:var(--text-muted);">データなし</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="status" class="status-loading"></div>
+    <button class="refresh-btn" onclick="fetchData()">データを更新</button>
+</div>
+
+<script>
+    // ⚠️ あなたがデプロイしたGASの「ウェブアプリURL」に書き換えてください
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwVVak2Hp1MrMwrDcVc2hdVyAas5iIwUN5ouOMAOs6Nsu61FA8qk4Bo7uFpeC1Yzq6LhQ/exec";
+
+    function formatMinutes(totalMinutes) {
+        if (!totalMinutes || totalMinutes === 0) return "試合中もしくは試合なし";
+        const hours = Math.floor(totalMinutes / 60);
+        const mins = Math.round(totalMinutes % 60);
+        return `${hours}時間${mins}分`;
+    }
+
+    async function fetchData() {
+        const statusEl = document.getElementById('status');
+        const npbTimeEl = document.getElementById('npb-time');
+        const mlbTimeEl = document.getElementById('mlb-time');
+        const npbCountEl = document.getElementById('npb-count');
+        const mlbCountEl = document.getElementById('mlb-count');
+        const diffValueEl = document.getElementById('diff-value');
+        const dateEl = document.getElementById('current-date');
+
+        statusEl.innerText = "🔄 最新データを取得中...";
+
+        try {
+            if (GAS_API_URL.includes("XXXXXX_YOUR_GAS_ID")) {
+                showDemo();
+                statusEl.innerHTML = "⚠️ <span style='color:red;'>GASのURLを入力すると自動取得が始まります。現在はデモ画面です。</span>";
+                return;
+            }
+
+            const response = await fetch(GAS_API_URL);
+            const data = await response.json();
+
+            dateEl.innerText = `対象日：${data.date} (JST)`;
+            npbTimeEl.innerText = data.npb_average ? formatMinutes(data.npb_average) : "試合中もしくは試合なし";
+            npbCountEl.innerText = `${data.npb_count}試合終了`;
+
+            mlbTimeEl.innerText = data.mlb_average ? formatMinutes(data.mlb_average) : "試合中もしくは試合なし";
+            mlbCountEl.innerText = `${data.mlb_count}試合終了`;
+
+            if (data.npb_count > 0 && data.mlb_count > 0) {
+                const diff = data.difference_minutes;
+                if (diff > 0) {
+                    diffValueEl.innerText = `NPBの方が ${diff}分 長い`;
+                } else if (diff < 0) {
+                    diffValueEl.innerText = `MLBの方が ${Math.abs(diff)}分 長い`;
+                } else {
+                    diffValueEl.innerText = `日米で同じ平均試合時間です`;
+                }
+            } else {
+                diffValueEl.innerText = "日米双方の試合が終了すると差分が計算されます";
+            }
+
+            const npbBody = document.getElementById('npb-table-body');
+            const mlbBody = document.getElementById('mlb-table-body');
+            
+            let npbHtml = "";
+            let mlbHtml = "";
+            let npbRank = 1;
+            let mlbRank = 1;
+
+            data.games_ranking.forEach(game => {
+                if (game.league === "NPB") {
+                    npbHtml += `<tr>
+                        <td class="rank-col">${npbRank++}</td>
+                        <td class="match-col"><a href="${game.url}" target="_blank" class="game-link">${game.match}</a></td>
+                        <td class="time-col">${game.display_time}</td>
+                    </tr>`;
+                } else if (game.league === "MLB") {
+                    mlbHtml += `<tr>
+                        <td class="rank-col">${mlbRank++}</td>
+                        <td class="match-col"><a href="${game.url}" target="_blank" class="game-link">${game.match}</a></td>
+                        <td class="time-col">${game.display_time}</td>
+                    </tr>`;
+                }
+            });
+
+            if (npbHtml) npbBody.innerHTML = npbHtml;
+            if (mlbHtml) mlbBody.innerHTML = mlbHtml;
+
+            statusEl.innerText = "✅ データを更新しました";
+        } catch (error) {
+            statusEl.innerText = "❌ データの取得に失敗しました。";
+        }
+    }
+
+    function showDemo() {
+        const now = new Date();
+        const jstDate = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+        document.getElementById('current-date').innerText = `対象日：${jstDate} (JST) [デモモード]`;
+        document.getElementById('npb-time').innerText = "3時間15分";
+        document.getElementById('npb-count').innerText = "6試合終了";
+        document.getElementById('mlb-time').innerText = "2時間42分";
+        document.getElementById('mlb-count').innerText = "15試合終了";
+        document.getElementById('diff-value').innerText = "NPBの方が 33分 長い";
+
+        document.getElementById('npb-table-body').innerHTML = `
+            <tr><td class="rank-col">1</td><td class="match-col"><a href="https://baseball.yahoo.co.jp/npb/" target="_blank" class="game-link">巨人 vs ソフトバンク</a></td><td class="time-col">3時間45分</td></tr>
+            <tr><td class="rank-col">2</td><td class="match-col"><a href="https://baseball.yahoo.co.jp/npb/" target="_blank" class="game-link">ヤクルト vs ロッテ</a></td><td class="time-col">3時間20分</td></tr>
+        `;
+        document.getElementById('mlb-table-body').innerHTML = `
+            <tr><td class="rank-col">1</td><td class="match-col"><a href="https://www.mlb.com" target="_blank" class="game-link">Red Sox @ Yankees</a></td><td class="time-col">3時間10分</td></tr>
+            <tr><td class="rank-col">2</td><td class="match-col"><a href="https://www.mlb.com" target="_blank" class="game-link">Dodgers @ Giants</a></td><td class="time-col">2時間55分</td></tr>
+        `;
+    }
+
+    window.onload = fetchData;
+</script>
+</body>
+</html>
